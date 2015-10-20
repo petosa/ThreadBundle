@@ -6,3 +6,5 @@ If li is a List of Threads, then you can declare a ThreadBundle: ThreadBundle tb
 ![alt tag](http://i.imgur.com/GovDURQ.png)
 
 Boxes with the same colors are part of the same linked list. Notice how they they are 3 indices apart, as that is the maximum number of threads that can run at once. Upon processing this ThreadBundle, all colors will have one representative running concurrently at once. Once one red thread completes, it starts the next red thread.
+
+Raises an event once all threads have completed.
