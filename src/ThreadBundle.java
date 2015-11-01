@@ -4,32 +4,43 @@ import java.util.concurrent.CountDownLatch;
 
 /**
  * Created by Nick on 10/13/2015.
+ *
+ * Apply a bottleneck to a group of threaded tasks to conform to hardware limitations.
  */
 public class ThreadBundle {
 
     private int MAXTHREADS;
-    private List<Thread> THREADLIST;
+    private List<? extends Thread> THREADLIST;
     private List<BundledThread> BUNDLEDTHREADLIST;
     private CountDownLatch latch;
 
-    public ThreadBundle(List<Thread> l, int max) {
-        if (l == null) {
-            throw new IllegalArgumentException("List is null");
-        }
-        if (max <= 0) {
-            throw new IllegalArgumentException("Max threads must be greater than 0");
-        }
-        if (max > l.size()) {
-           max = l.size();
-            System.out.println("Specified max too large; setting max threads to " + l.size() + ".");
-        }
-        MAXTHREADS = max;
-        THREADLIST = l;
-        BUNDLEDTHREADLIST = bundleThreads(l, max);
+    public ThreadBundle() {
+
+    }
+
+    public ThreadBundle(List<? extends Thread> l) {
+        setThreadList(l);
+    }
+
+    public ThreadBundle(int max) {
+        setMaxThreads(max);
+    }
+
+    /**
+     * ThreadList and max constructor for ThreadBundle object.
+     *
+     * @param l List of objects extending Thread. These will be chained.
+     * @param max maximum number of threads in each bundle.
+     * @throws IllegalArgumentException if list is null.
+     * @throws IllegalArgumentException if max is less than 1.
+     */
+    public ThreadBundle(List<? extends Thread> l, int max) {
+        setThreadList(l);
+        setMaxThreads(max);
     }
 
     //Link threads recursively
-    private List<BundledThread> bundleThreads(List<Thread> l, int max) {
+    private List<BundledThread> bundleThreads(List<? extends Thread> l, int max) {
         List<BundledThread> b = new ArrayList<BundledThread>();
         for (int x = 0; x < max; x++) {
             if (l.get(x) == null) {
@@ -41,7 +52,8 @@ public class ThreadBundle {
     }
 
     //Recursive bundling
-    private BundledThread buildChain(BundledThread curr, List<Thread> l, int index, int max) {
+    private BundledThread buildChain(BundledThread curr, List<? extends Thread> l,
+                                     int index, int max) {
         if (index + max >= l.size()) {
             return curr;
         }
@@ -49,49 +61,79 @@ public class ThreadBundle {
         return curr;
     }
 
-    //Run all thread chains
-    public void process() throws InterruptedException{
-        latch = new CountDownLatch(MAXTHREADS);
-        for (BundledThread t : BUNDLEDTHREADLIST) {
-            t.run();
+    public void setThreadList(List<? extends Thread> l) {
+        if (l == null) {
+            throw new IllegalArgumentException("List is null");
         }
-        latch.await();
+        THREADLIST = l;
     }
 
-    //Private inner wrapper class for thread
+    public void setMaxThreads(int max) {
+        if (max <= 0) {
+            throw new IllegalArgumentException("Max threads must be greater than 0");
+        }
+        MAXTHREADS = max;
+    }
+
+    //Run all thread chains
+    public void process(){
+        if (THREADLIST == null) {
+            throw new RuntimeException("Thread list was never specified");
+        }
+        if (MAXTHREADS <= 0) {
+            throw new IllegalArgumentException("Max number of threads was never specified");
+        }
+        //Specified max too large; setting max threads to size of list.
+        if (MAXTHREADS > THREADLIST.size()) {
+            MAXTHREADS = THREADLIST.size();
+        }
+        BUNDLEDTHREADLIST = bundleThreads(THREADLIST, MAXTHREADS);
+        latch = new CountDownLatch(MAXTHREADS);
+        for (BundledThread t : BUNDLEDTHREADLIST) {
+            Runnable r = () -> t.start();
+            new Thread(r).start();
+        }
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    //Private inner wrapper class for BundledThread
     private class BundledThread extends Thread {
 
         private BundledThread next;
         private Thread me;
 
-        public BundledThread(Thread t) {
+        private BundledThread(Thread t) {
             me = t;
         }
 
         @Override
-        public void run() {
-            me.run();
+        public void start() {
+            me.start();
             try {
                 me.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             if (hasNext()) {
-                next.run();
+                getNext().start();
             } else {
                 latch.countDown();
             }
         }
 
-        public void setNext(BundledThread bt) {
+        private void setNext(BundledThread bt) {
             next = bt;
         }
 
-        public BundledThread getNext() {
+        private BundledThread getNext() {
             return next;
         }
 
-        public boolean hasNext() {
+        private boolean hasNext() {
             return next != null;
         }
 
