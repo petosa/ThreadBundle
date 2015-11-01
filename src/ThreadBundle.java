@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Created by Nick on 10/13/2015.
@@ -8,7 +9,8 @@ public class ThreadBundle {
 
     private int MAXTHREADS;
     private List<Thread> THREADLIST;
-    public List<BundledThread> BUNDLEDTHREADLIST;
+    private List<BundledThread> BUNDLEDTHREADLIST;
+    private CountDownLatch latch;
 
     public ThreadBundle(List<Thread> l, int max) {
         if (l == null) {
@@ -18,7 +20,7 @@ public class ThreadBundle {
             throw new IllegalArgumentException("Max threads must be greater than 0");
         }
         if (max > l.size()) {
-            max = l.size();
+           max = l.size();
             System.out.println("Specified max too large; setting max threads to " + l.size() + ".");
         }
         MAXTHREADS = max;
@@ -48,13 +50,12 @@ public class ThreadBundle {
     }
 
     //Run all thread chains
-    public void process() {
+    public void process() throws InterruptedException{
+        latch = new CountDownLatch(MAXTHREADS);
         for (BundledThread t : BUNDLEDTHREADLIST) {
-            while (t != null) {
-                t.run();
-                t = t.getNext();
-            }
+            t.run();
         }
+        latch.await();
     }
 
     //Private inner wrapper class for thread
@@ -70,6 +71,16 @@ public class ThreadBundle {
         @Override
         public void run() {
             me.run();
+            try {
+                me.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            if (hasNext()) {
+                next.run();
+            } else {
+                latch.countDown();
+            }
         }
 
         public void setNext(BundledThread bt) {
