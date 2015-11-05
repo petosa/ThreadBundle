@@ -11,17 +11,29 @@ public class ThreadBundle {
 
     private int MAXTHREADS;
     private List<? extends Thread> THREADLIST;
-    private List<BundledThread> BUNDLEDTHREADLIST;
     private CountDownLatch latch;
 
+    /**
+     * Default constructor for ThreadBundle object.
+     */
     public ThreadBundle() {
 
     }
 
+    /**
+     * ThreadList constructor for ThreadBundle object.
+     *
+     * @param l List of objects extending Thread. These will be chained.
+     */
     public ThreadBundle(List<? extends Thread> l) {
         setThreadList(l);
     }
 
+    /**
+     * Max constructor for ThreadBundle object.
+     *
+     * @param max maximum number of threads in each bundle.
+     */
     public ThreadBundle(int max) {
         setMaxThreads(max);
     }
@@ -31,8 +43,6 @@ public class ThreadBundle {
      *
      * @param l List of objects extending Thread. These will be chained.
      * @param max maximum number of threads in each bundle.
-     * @throws IllegalArgumentException if list is null.
-     * @throws IllegalArgumentException if max is less than 1.
      */
     public ThreadBundle(List<? extends Thread> l, int max) {
         setThreadList(l);
@@ -87,9 +97,9 @@ public class ThreadBundle {
         if (MAXTHREADS > THREADLIST.size()) {
             MAXTHREADS = THREADLIST.size();
         }
-        BUNDLEDTHREADLIST = bundleThreads(THREADLIST, MAXTHREADS);
+        List<BundledThread> bundles = bundleThreads(THREADLIST, MAXTHREADS);
         latch = new CountDownLatch(MAXTHREADS);
-        for (BundledThread t : BUNDLEDTHREADLIST) {
+        for (BundledThread t : bundles) {
             Runnable r = () -> t.start();
             new Thread(r).start();
         }
